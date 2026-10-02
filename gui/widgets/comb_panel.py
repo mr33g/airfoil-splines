@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QSlider,
     QWidget,
 )
-from core.config import (
+from gui.config import (
     COMB_DENSITY_MIN,
     COMB_DENSITY_MAX,
     COMB_DENSITY_DEFAULT,

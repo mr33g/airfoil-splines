@@ -23,7 +23,6 @@ from gui.widgets import (
     StatusLogWidget,
     AirfoilPlotWidget,
 )
-from core.bspline_processor import BSplineProcessor
 
 
 __all__ = ["MainWindow"]
@@ -55,8 +54,6 @@ class MainWindow(QMainWindow):
         self.airfoil_settings_panel = AirfoilSettingsWidget(self)
         self.comb_panel = CombPanelWidget(self)
         self.status_log = StatusLogWidget(self)
-        # B-spline processor instance (optional usage by controllers)
-        self.bspline_processor = BSplineProcessor()
 
         control_layout.addWidget(self.file_panel)
         control_layout.addWidget(self.optimizer_panel)
@@ -74,3 +71,10 @@ class MainWindow(QMainWindow):
         plot_layout.addWidget(self.plot_widget)
 
         main_layout.addLayout(plot_layout, 3)
+    def closeEvent(self, event):
+        controller = getattr(self, "bspline_controller", None)
+        if controller is not None and controller.busy:
+            self.status_log.append("Please wait for the fitting operation before closing.")
+            event.ignore()
+        else:
+            super().closeEvent(event)

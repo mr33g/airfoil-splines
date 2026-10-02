@@ -17,7 +17,7 @@ Download and execute the latest .msi installer package.
 
 #### Installation Procedure
 
-1. Clone or download this repository.
+1. Clone this repository and `mr33g/AirfoilFit` into sibling folders named `AirfoilFitter` and `AirfoilFit`.
 
 2. Create and activate a virtual environment (recommended):
    ```
@@ -28,8 +28,10 @@ Download and execute the latest .msi installer package.
 
 3. Install dependencies:
    ```
-   pip install -r requirements.txt
+   python -m pip install -r requirements.txt
    ```
+
+AirfoilFit is installed in editable mode from the sibling folder. To use a different location, install it with `python -m pip install -e /path/to/AirfoilFit` and install the remaining dependencies separately. Packaged installers include the library; end users do not need a separate checkout.
 
 #### Dependencies
 
@@ -40,7 +42,7 @@ Download and execute the latest .msi installer package.
 | PySide6    | Qt GUI framework                     |
 | pyqtgraph  | Interactive plotting                 |
 | ezdxf      | DXF file export                      |
-| joblib     | Parallel processing utilities        |
+| airfoil-fit | Shared fitting and coordinate loading |
 | pyinstaller| Installer utilities                  |
 
 
@@ -58,16 +60,16 @@ python run_gui.py
    Click *Load Airfoil File* and select a `.dat` file. Both Selig and Lednicer formats are supported. The application normalizes coordinates to unit chord with the leading edge at the origin.
 
 2. **Fit B-spline**  
-   Click *Fit B-spline* to perform the initial fit. The default configuration uses 9 control points per surface with degree 4.
+   Click *Fit B-spline* to perform the initial fit. The initial control-point count and degree come from the application settings.
 
 3. **Adjust Parameters**
    - **Degree**: B-spline polynomial degree (4–12). Higher degrees allow smoother curves but may be less stable.
-   - **Initial CP count**: Initial control points per surface. Must be greater than degree. Point inisertion is biased towards the location of max error, so starting from a low initial count will produce different results than a high initial count.
-   - **Smoothness**: Second-difference regularization weight. Higher values produce smoother control polygons at the cost of fitting accuracy. The slider uses a nonlinear mapping so the low end gives finer control.
+   - **Initial CP count**: Initial control points per surface. Must be greater than degree. Point insertion is biased towards the location of max error, so starting from a low initial count will produce different results than a high initial count.
+   - **Smoothness**: Fourth-difference regularization weight. Higher values produce smoother control polygons at the cost of fitting accuracy. The slider uses a nonlinear mapping so the low end gives finer control.
    - **G2 / G3**: Enable curvature (G2) or curvature-derivative (G3) continuity at the leading edge.
-   - **TE tangency**: Constrain trailing edge tangent direction to match the input data.
+   Trailing-edge direction is estimated automatically by AirfoilFit.
 
-   Releasing the **Smoothness** slider triggers a fresh fit at the selected setting. Other parameter changes re-fit the current model when possible.
+   Releasing the **Smoothness** slider triggers a fresh fit at the selected setting. Degree and continuity changes re-fit the current model; continuity changes retain inserted knots. The initial count takes effect only on Fit/Reset.
 
 4. **Refine the Fit**
    Use the **+** buttons next to each surface label to insert control points. Knots are inserted at the location of maximum deviation.
@@ -82,7 +84,7 @@ python run_gui.py
 
 ### Configuration
 
-Runtime defaults are defined in `core/config.py`.
+Runtime defaults are defined in `gui/config.py`.
 For packaged app installs, the installer ships a user-editable
 `airfoilfitter.config.json` next to `AirfoilFitter.exe` in the install folder.
 If this file exists, matching uppercase keys override defaults at startup.
@@ -100,19 +102,17 @@ Available keys:
 | `DEBUG_WORKER_LOGGING`       | False   | Enable verbose worker logging                            |
 | `DEFAULT_BSPLINE_DEGREE`     | 4       | Initial B-spline degree                                  |
 | `DEFAULT_BSPLINE_CP`         | 9       | Initial control points per surface                       |
-| `DEFAULT_SMOOTHNESS_PENALTY` | 0.0     | Base second-difference smoothing weight                  |
+| `DEFAULT_SMOOTHNESS_PENALTY` | 0.0     | Base fourth-difference smoothing weight                  |
 | `DEFAULT_CHORD_LENGTH_MM`    | 200.0   | Default chord length used for export scaling             |
 | `DEFAULT_TE_THICKNESS_MM`    | 0.0     | Default trailing edge thickness value in the UI          |
 | `ENABLE_BSP_EXPORT`          | False   | Enable BSP export action                                 |
 | `ENABLE_DAT_EXPORT`          | False   | Enable DAT export action                                 |
-| `NUM_POINTS_CURVE_ERROR`     | 35000   | Sampling density used for curve error evaluation         |
 | `PLOT_POINTS_PER_SURFACE`    | 500     | Base number of sampled points per plotted surface        |
 | `PLOT_CURVATURE_WEIGHT`      | 0.85    | Plot sampling blend (0.0 uniform to 1.0 curvature-based) |
 | `COMB_DENSITY_MIN`           | 100     | Minimum allowed curvature comb density                   |
 | `COMB_DENSITY_MAX`           | 1000    | Maximum allowed curvature comb density                   |
 | `COMB_DENSITY_DEFAULT`       | 200     | Default curvature comb density                           |
 | `COMB_SCALE_DEFAULT`         | 0.02    | Default curvature comb scale factor                      |
-| `DEFAULT_TE_VECTOR_POINTS`   | 2       | Points used to estimate trailing edge tangent direction  |
 
 ## Background
 
@@ -120,56 +120,15 @@ Airfoil coordinates from sources like the UIUC database are provided as discrete
 
 This application fits smooth B-spline curves to the coordinate data, enforcing geometric constraints that ensure the resulting curves are suitable for CAD modeling.
 
-### B-spline Fitting Method
+### Architecture
 
-The fitting algorithm solves a constrained least-squares problem:
+AirfoilFit owns coordinate parsing/normalization, vertical-error fitting, continuity constraints, knot refinement, and BSP/DAT output. This app owns Qt controls, plotting, background jobs, import workflow, and DXF export. Numerical code is not copied into the app.
 
-1. **Parameterization**: Input coordinates are mapped to parameter values using `u = x^0.5`, which concentrates parameter density near the leading edge where curvature is highest.
+`gui/fit_session.py` holds desktop fitting state; `gui/airfoil_model.py` bridges the source model to Qt signals. Workers operate on a candidate session and the GUI adopts it only after success, preserving the previous result when an operation fails.
 
-2. **Knot Vector**: A clamped uniform knot vector is generated based on the number of control points and the selected degree.
+### Tests
 
-3. **Constraints**:
-   - **G1 at leading edge**: Both surfaces share a common leading edge point at the origin, with the first control point constrained to lie on the y-axis. This ensures tangent continuity.
-   - **G2 at leading edge** (optional): Curvatures are matched by solving an optimization problem with an equality constraint on the curvature values at u=0.
-   - **G3 at leading edge** (optional): Curvature derivatives are additionally matched.
-   - **Trailing edge position**: The last control point is constrained to the trailing edge coordinates.
-   - **Trailing edge tangent** (optional): The direction of the curve at u=1 is constrained to match a tangent vector computed from the input data.
-
-4. **Optimization**: When G2/G3 constraints are enabled, the problem is solved using SLSQP (Sequential Least Squares Programming). The objective function combines fitting error with a scaled second-difference penalty on the control polygon.
-
-5. **Control-Polygon Regularization**:
-   - **Hard x-bounds**: Free control-point x-coordinates are bounded to the normalized chord domain `[0, 1]`.
-   - **Hard x-monotonicity**: Neighboring control points on each surface are constrained to remain monotone in x.
-   - **Smoothness slider**: Only the second-difference term is controlled by the slider. A value of `0` gives a pure fit under the geometric constraints; higher values increasingly favor a smoother control polygon.
-
-### Trailing Edge Thickening
-
-Blunt trailing edges are applied as a post-processing step:
-
-1. Both fitted curves are densely sampled.
-2. A vertical offset is computed using a quintic smoothstep function: `f(x) = x³(10 − 15x + 6x²)`.
-3. The offset is zero at x=0 (leading edge) and reaches the target half-thickness at x=1 (trailing edge).
-4. The curves are re-fitted to the offset points, preserving G1 continuity at the leading edge.
-
-### Project Structure
-
-```
-AirfoilFitter/
-├── run_gui.py              # Application entry point
-├── core/
-│   ├── config.py           # Configuration constants
-│   ├── airfoil_processor.py # Coordinate loading and normalization
-│   └── bspline_processor.py # B-spline fitting algorithms
-├── gui/
-│   ├── main_window.py      # Main window layout
-│   ├── controllers/        # Application logic
-│   └── widgets/            # UI components
-└── utils/
-    ├── bspline_helper.py   # B-spline utility functions
-    ├── data_loader.py      # File format parsing
-    ├── bsp_exporter.py     # BSP output
-    └── dxf_exporter.py     # DXF output
-```
+Run `python -m unittest discover -s tests -v` from the app folder after installing dependencies. The suite includes numerical integration and offscreen Qt tests for loading, fitting/refitting, insertion, TE thickness, failure recovery, and exports. A visible GUI smoke test is still useful before releasing an installer.
 
 ## License
 

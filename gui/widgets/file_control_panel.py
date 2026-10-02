@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from core import config
+from gui import config
 
 class FileControlPanel(QGroupBox):
     """Panel containing *Load* and *Export* actions for airfoil files."""

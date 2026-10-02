@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
-from core import config
+from gui import config
 
 
 _DEBUG_LOG_PATH = Path(__file__).resolve().parent.parent / "debug.log"

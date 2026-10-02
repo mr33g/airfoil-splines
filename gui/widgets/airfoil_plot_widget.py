@@ -11,7 +11,7 @@ import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt
 
-from core.config import (
+from gui.config import (
     PLOT_POINTS_PER_SURFACE,
 )
 

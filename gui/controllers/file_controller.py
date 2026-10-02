@@ -6,28 +6,30 @@ Handles loading airfoil data files and exporting B-spline models.
 from __future__ import annotations
 
 import os
+import math
 from typing import Any
 import numpy as np
 
 from PySide6.QtWidgets import QFileDialog
 from scipy import interpolate
 
-from core.airfoil_processor import AirfoilProcessor
-from core import config
+from gui.airfoil_model import AirfoilModel
+from gui import config
 from utils.dxf_exporter import (
     DXF_EXPORT_MODE_BEZIER,
     DXF_EXPORT_MODE_NURBS,
     export_bspline_to_dxf,
 )
-from utils.bsp_exporter import export_bspline_to_bsp
+from airfoil_fit import AirfoilProcessor, BSplineProcessor, export_bspline_to_bsp
 from utils.bsp_importer import load_bspline_from_bsp
-from utils.data_loader import export_airfoil_to_selig_format, load_airfoil_data
+from airfoil_fit.data_loader import export_airfoil_to_selig_format
+from gui.fit_session import FitSession
 
 
 class FileController:
     """Handles file loading and export operations."""
     
-    def __init__(self, processor: AirfoilProcessor, window: Any, ui_state_controller: Any = None):
+    def __init__(self, processor: AirfoilModel, window: Any, ui_state_controller: Any = None):
         self.processor = processor
         self.window = window
         self.ui_state_controller = ui_state_controller
@@ -53,11 +55,6 @@ class FileController:
         if not file_path:
             return
 
-        # Clear only once a new file has actually been selected
-        self.window.plot_widget.clear()
-
-        self.window.file_panel.file_path_label.setText(os.path.basename(file_path))
-
         try:
             suffix = os.path.splitext(file_path)[1].lower()
             if suffix == ".bsp":
@@ -65,6 +62,7 @@ class FileController:
                     self.processor.log_message.emit(
                         f"Successfully loaded BSP '{os.path.basename(file_path)}'."
                     )
+                    self.window.file_panel.file_path_label.setText(os.path.basename(file_path))
                     if self.ui_state_controller:
                         self.ui_state_controller.update_button_states()
                 else:
@@ -76,6 +74,7 @@ class FileController:
                     f"Successfully loaded '{os.path.basename(file_path)}'."
                 )
                 
+                self.window.file_panel.file_path_label.setText(os.path.basename(file_path))
                 # Reset UI state for new airfoil
                 if self.ui_state_controller:
                     self.ui_state_controller.reset_ui_for_new_airfoil()
@@ -89,165 +88,57 @@ class FileController:
             )
 
     def _load_bsp_file(self, file_path: str) -> bool:
-        """Load a .bsp model and hydrate processor + GUI state for inspection."""
-        bsp_data = load_bspline_from_bsp(file_path)
-        bspline_proc = self._get_bspline_processor()
-        if bspline_proc is None:
-            self.processor.log_message.emit("Error: No B-spline processor available.")
-            return False
-
-        upper_cp = np.asarray(bsp_data.upper_control_points, dtype=float)
-        lower_cp = np.asarray(bsp_data.lower_control_points, dtype=float)
-        upper_knots = np.asarray(bsp_data.upper_knots, dtype=float)
-        lower_knots = np.asarray(bsp_data.lower_knots, dtype=float)
-
-        deg_upper = int(getattr(bsp_data, "upper_degree", len(upper_knots) - len(upper_cp) - 1))
-        deg_lower = int(getattr(bsp_data, "lower_degree", len(lower_knots) - len(lower_cp) - 1))
-        if deg_upper < 1 or deg_lower < 1:
-            self.processor.log_message.emit(
-                "Error: Invalid BSP degree inferred from knot/control-point counts."
-            )
-            return False
-
-        try:
-            upper_curve = interpolate.BSpline(upper_knots, upper_cp, deg_upper)
-            lower_curve = interpolate.BSpline(lower_knots, lower_cp, deg_lower)
-        except Exception as exc:
-            self.processor.log_message.emit(f"Error: Could not construct BSP curves: {exc}")
-            return False
-
-        bspline_proc.reset_model_state()
-        bspline_proc.upper_control_points = upper_cp
-        bspline_proc.lower_control_points = lower_cp
-        bspline_proc.upper_knot_vector = upper_knots
-        bspline_proc.lower_knot_vector = lower_knots
-        bspline_proc.upper_curve = upper_curve
-        bspline_proc.lower_curve = lower_curve
-        bspline_proc.degree_upper = deg_upper
-        bspline_proc.degree_lower = deg_lower
-        bspline_proc.degree = max(deg_upper, deg_lower)
-        bspline_proc.fitted_degree = (deg_upper, deg_lower)
-        bspline_proc.num_cp_upper = int(len(upper_cp))
-        bspline_proc.num_cp_lower = int(len(lower_cp))
-        bspline_proc.is_sharp_te = bool(np.allclose(upper_cp[-1], lower_cp[-1], atol=1e-12))
-        bspline_proc.fitted = True
-
-        # Prefer sibling DAT (same stem) as reference/source data for error calculations.
-        # If unavailable, fall back to sampled points from the imported BSP curves.
-        ref_dat_path = self._find_matching_dat_for_bsp(file_path)
-        has_reference_data = False
-        if ref_dat_path is not None:
-            try:
-                upper_data, lower_data, dat_name, blunt_te = load_airfoil_data(
-                    ref_dat_path,
-                    logger_func=lambda _msg: None,
-                )
-                has_reference_data = True
-                self.processor.log_message.emit(
-                    f"Loaded reference DAT for BSP comparison: '{os.path.basename(ref_dat_path)}'."
-                )
-                if dat_name:
-                    self.processor.airfoil_name = dat_name
-                self.processor._is_blunt_TE = blunt_te
-            except Exception as exc:
-                self.processor.log_message.emit(
-                    f"Warning: Could not load matching DAT '{os.path.basename(ref_dat_path)}': {exc}. "
-                    "Falling back to BSP-sampled reference data."
-                )
-                upper_data, lower_data = self._sample_bsp_curves(upper_curve, lower_curve)
-                self.processor.airfoil_name = bsp_data.airfoil_name or os.path.splitext(os.path.basename(file_path))[0]
-                self.processor._is_blunt_TE = not bspline_proc.is_sharp_te
-        else:
-            upper_data, lower_data = self._sample_bsp_curves(upper_curve, lower_curve)
-            self.processor.airfoil_name = bsp_data.airfoil_name or os.path.splitext(os.path.basename(file_path))[0]
-            self.processor._is_blunt_TE = not bspline_proc.is_sharp_te
-
-        display_upper_data = upper_data
-        display_lower_data = lower_data
-        if ref_dat_path is not None and has_reference_data:
-            try:
-                display_upper_data, display_lower_data, _display_name, _display_blunt = load_airfoil_data(
-                    ref_dat_path,
-                    logger_func=lambda _msg: None,
-                    repanel_input=False,
-                )
-            except Exception:
-                display_upper_data = upper_data
-                display_lower_data = lower_data
-
-        self.processor.upper_data = upper_data
-        self.processor.lower_data = lower_data
-        self.processor.upper_display_reference_data = display_upper_data
-        self.processor.lower_display_reference_data = display_lower_data
-        self.processor._last_plot_data = None
-        self.processor.upper_te_tangent_vector, self.processor.lower_te_tangent_vector = (
-            self.processor._calculate_te_tangent(
-                self.processor.upper_data,
-                self.processor.lower_data,
-                config.DEFAULT_TE_VECTOR_POINTS,
-            )
-        )
-
-        bspline_proc.upper_original_data = upper_data.copy()
-        bspline_proc.lower_original_data = lower_data.copy()
-        bspline_proc.error_reference_available = has_reference_data
-        if not has_reference_data:
-            bspline_proc.last_upper_max_error = None
-            bspline_proc.last_upper_max_error_idx = None
-            bspline_proc.last_lower_max_error = None
-            bspline_proc.last_lower_max_error_idx = None
-
+        """Adopt a validated model atomically, with an optional measured DAT reference."""
+        data = load_bspline_from_bsp(file_path)
+        session = FitSession((data.upper_degree, data.lower_degree))
+        model = session.model
+        for side in ("upper", "lower"):
+            cp = getattr(data, side + "_control_points")
+            knots = getattr(data, side + "_knots")
+            degree = getattr(data, side + "_degree")
+            setattr(model, side + "_control_points", cp.copy())
+            setattr(model, side + "_knot_vector", knots.copy())
+            setattr(model, side + "_curve", interpolate.BSpline(knots, cp, degree))
+            setattr(model, "num_cp_" + side, len(cp))
+        model.fitted_degree = (data.upper_degree, data.lower_degree)
+        model.is_sharp_te = bool(np.linalg.norm(data.upper_control_points[-1] - data.lower_control_points[-1]) <= 1e-8)
+        model.fitted = True
+        source = AirfoilProcessor(logger_func=self.processor.log_message.emit)
+        reference_path = self._find_matching_dat_for_bsp(file_path)
+        has_reference = False
+        if reference_path:
+            has_reference = source.load_airfoil_data_and_initialize_model(reference_path)
+        if not has_reference:
+            source.upper_data, source.lower_data = self._sample_bsp_curves(model.upper_curve, model.lower_curve)
+            source.upper_display_reference_data = source.upper_data.copy()
+            source.lower_display_reference_data = source.lower_data.copy()
+            source.airfoil_name = data.airfoil_name
+        model.upper_original_data = source.upper_data.copy()
+        model.lower_original_data = source.lower_data.copy()
+        self.processor.source = source
+        self.processor.error_reference_available = has_reference
+        self.processor.error_metrics = {}
+        controller = self.window.bspline_controller
+        controller.session = session
+        controller._sync_model()
+        # Imported degrees/counts belong to the file, not the last-used controls.
+        opt = self.window.optimizer_panel
+        for widget in (opt.bspline_degree_spin, opt.initial_cp_spin, opt.g2_checkbox, opt.g3_checkbox):
+            widget.blockSignals(True)
+        opt.bspline_degree_spin.setValue(max(data.upper_degree, data.lower_degree))
+        opt._sync_initial_cp_min()
+        opt.initial_cp_spin.setValue(max(model.num_cp_upper, model.num_cp_lower))
+        # BSP has no continuity metadata. Do not claim it was fitted with G2/G3.
+        opt.g2_checkbox.setChecked(False)
+        opt.g3_checkbox.setChecked(False)
+        opt._update_g3_checkbox_state()
+        for widget in (opt.bspline_degree_spin, opt.initial_cp_spin, opt.g2_checkbox, opt.g3_checkbox):
+            widget.blockSignals(False)
         if self.ui_state_controller:
             self.ui_state_controller._calculate_initial_thickness()
-            self.window.optimizer_panel.upper_cp_label.setText(f"Upper CPs: {bspline_proc.num_cp_upper}")
-            self.window.optimizer_panel.lower_cp_label.setText(f"Lower CPs: {bspline_proc.num_cp_lower}")
-            fit_btn = getattr(self.window, "bspline_controller", None)
-            if fit_btn is not None:
-                fit_btn._update_fit_button_text()
-
-        bspline_controller = getattr(self.window, "bspline_controller", None)
-        if (
-            bspline_controller is not None
-            and has_reference_data
-            and bspline_proc.upper_curve is not None
-            and bspline_proc.lower_curve is not None
-            and self.processor.upper_data is not None
-            and self.processor.lower_data is not None
-        ):
-            try:
-                upper_sum_sq, upper_max_err, upper_max_err_idx, _ = bspline_controller.calculate_bspline_fitting_error(
-                    bspline_proc.upper_curve,
-                    self.processor.upper_data,
-                    return_max_error=True,
-                )
-                lower_sum_sq, lower_max_err, lower_max_err_idx, _ = bspline_controller.calculate_bspline_fitting_error(
-                    bspline_proc.lower_curve,
-                    self.processor.lower_data,
-                    return_max_error=True,
-                )
-                bspline_proc.last_upper_max_error = upper_max_err
-                bspline_proc.last_upper_max_error_idx = upper_max_err_idx
-                bspline_proc.last_lower_max_error = lower_max_err
-                bspline_proc.last_lower_max_error_idx = lower_max_err_idx
-                upper_rms_err = float(np.sqrt(upper_sum_sq / len(self.processor.upper_data))) if len(self.processor.upper_data) else 0.0
-                lower_rms_err = float(np.sqrt(lower_sum_sq / len(self.processor.lower_data))) if len(self.processor.lower_data) else 0.0
-                upper_max_pct = upper_max_err * 100.0
-                upper_rms_pct = upper_rms_err * 100.0
-                lower_max_pct = lower_max_err * 100.0
-                lower_rms_pct = lower_rms_err * 100.0
-                self.processor.log_message.emit(
-                    f"BSP error metrics updated (% chord). Upper max error: {upper_max_pct:.4f}%, "
-                    f"Upper RMS error: {upper_rms_pct:.4f}%, Lower max error: {lower_max_pct:.4f}%, "
-                    f"Lower RMS error: {lower_rms_pct:.4f}%"
-                )
-            except Exception as exc:
-                self.processor.log_message.emit(f"Warning: Could not compute BSP error metrics: {exc}")
-
-        if bspline_controller is not None:
-            bspline_controller._update_plot_with_bsplines()
-        else:
-            self.processor.emit_plot_update(bspline_processor=bspline_proc, comb_bspline=None)
-
+        controller._update_fit_button_text()
+        controller._update_final_error_metrics()
+        controller._update_plot_with_bsplines()
         return True
 
     def _sample_bsp_curves(self, upper_curve, lower_curve) -> tuple[np.ndarray, np.ndarray]:
@@ -309,6 +200,8 @@ class FileController:
             chord_length_mm = float(
                 self.window.airfoil_settings_panel.chord_length_input.text()
             )
+            if not math.isfinite(chord_length_mm) or chord_length_mm <= 0:
+                raise ValueError("Chord length must be positive.")
         except ValueError:
             self.processor.log_message.emit(
                 "Error: Invalid chord length. Please enter a number."

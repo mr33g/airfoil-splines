@@ -1,6 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
 import sys
+from PyInstaller.utils.hooks import collect_submodules, copy_metadata
+
+# Fail early if the shared dependency has not been installed.
+import airfoil_fit
 block_cipher = None
 
 is_win = sys.platform == 'win32'
@@ -16,8 +20,8 @@ analysis = Analysis(
     ['run_gui.py'],
     pathex=['.'],
     binaries=[],
-    datas=[('img', 'img')],
-    hiddenimports=[],
+    datas=[('img', 'img')] + copy_metadata('airfoil-fit'),
+    hiddenimports=collect_submodules("airfoil_fit"),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

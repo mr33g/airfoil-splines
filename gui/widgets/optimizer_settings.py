@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QSlider,
 )
 
-from core import config
+from gui import config
 
 
 class OptimizerSettingsWidget(QGroupBox):

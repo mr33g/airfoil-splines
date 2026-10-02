@@ -1,7 +1,8 @@
+# Local shared-library checkout (install from the app directory).
+-e ../AirfoilFit
 scipy
 numpy
 ezdxf
 PySide6==6.10.1
 pyqtgraph
-joblib
 pyinstaller

@@ -6,8 +6,8 @@ from PySide6.QtWidgets import QTextEdit, QVBoxLayout, QWidget
 from PySide6.QtGui import QFont
 from PySide6.QtCore import QTimer
 
-from core import config
-from core.debug_log import write_debug_line
+from gui import config
+from gui.debug_log import write_debug_line
 
 
 class StatusLogWidget(QWidget):

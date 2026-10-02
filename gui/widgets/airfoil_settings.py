@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from core import config
+from gui import config
 
 
 class AirfoilSettingsWidget(QGroupBox):

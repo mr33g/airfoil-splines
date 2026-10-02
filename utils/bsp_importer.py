@@ -46,6 +46,17 @@ def _parse_surface_json(payload: object, *, surface_name: str) -> tuple[np.ndarr
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Surface '{surface_name}' contains invalid numeric values.") from exc
 
+    if isinstance(degree, bool) or not isinstance(degree, int):
+        raise ValueError(f"Surface '{surface_name}' degree must be an integer.")
+    if (not np.isfinite(control_points).all() or not np.isfinite(knot_vector).all()
+            or knot_vector.ndim != 1 or np.any(np.diff(knot_vector) < 0)):
+        raise ValueError(f"Surface '{surface_name}' contains nonfinite or unsorted values.")
+    if len(control_points) < degree_value + 1:
+        raise ValueError(f"Surface '{surface_name}' has too few control points.")
+    if (not np.all(knot_vector[:degree_value + 1] == 0)
+            or not np.all(knot_vector[-degree_value - 1:] == 1)):
+        raise ValueError(f"Surface '{surface_name}' must have clamped unit-domain knots.")
+
     expected_knot_count = len(control_points) + degree_value + 1
     if degree_value < 1:
         raise ValueError(f"Surface '{surface_name}' has invalid degree {degree_value}.")

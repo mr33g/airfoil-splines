@@ -9,7 +9,7 @@ from typing import Any
 
 from PySide6.QtCore import QObject
 
-from core.airfoil_processor import AirfoilProcessor
+from gui.airfoil_model import AirfoilModel
 from gui.main_window import MainWindow
 
 from .file_controller import FileController
@@ -24,7 +24,8 @@ class MainController(QObject):
         super().__init__(window)
 
         self.window = window
-        self.processor = AirfoilProcessor()
+        window.controller = self
+        self.processor = AirfoilModel()
         
         # Initialize sub-controllers
         self.ui_state_controller = UIStateController(self.processor, self.window)
@@ -78,6 +79,7 @@ class MainController(QObject):
         airfoil = self.window.airfoil_settings_panel
         airfoil.toggle_thickening_button.clicked.connect(self.ui_state_controller.handle_toggle_thickening)
         airfoil.te_thickness_input.textChanged.connect(self.ui_state_controller.handle_thickness_input_changed)
+        airfoil.chord_length_input.editingFinished.connect(self.ui_state_controller.handle_chord_changed)
 
         # Comb parameters
         comb = self.window.comb_panel
