@@ -26,21 +26,21 @@ case "$ARCH" in
 esac
 
 cd "$ROOT"
-pyinstaller AirfoilFitter.spec --noconfirm --clean
+pyinstaller AirfoilSplines.spec --noconfirm --clean
 
-APP_PATH="$ROOT/dist/AirfoilFitter.app"
+APP_PATH="$ROOT/dist/AirfoilSplines.app"
 if [[ ! -d "$APP_PATH" ]]; then
-  APP_PATH="$ROOT/dist/AirfoilFitter/AirfoilFitter.app"
+  APP_PATH="$ROOT/dist/AirfoilSplines/AirfoilSplines.app"
 fi
 
 if [[ ! -d "$APP_PATH" ]]; then
-  echo "App bundle not found. Expected $ROOT/dist/AirfoilFitter.app or $ROOT/dist/AirfoilFitter/AirfoilFitter.app" >&2
+  echo "App bundle not found. Expected $ROOT/dist/AirfoilSplines.app or $ROOT/dist/AirfoilSplines/AirfoilSplines.app" >&2
   exit 1
 fi
 
-DMG_OUT="$ROOT/dist/AirfoilFitter-${VERSION}-${ARCH_SUFFIX}.dmg"
+DMG_OUT="$ROOT/dist/AirfoilSplines-${VERSION}-${ARCH_SUFFIX}.dmg"
 create-dmg \
-  --volname "AirfoilFitter" \
+  --volname "AirfoilSplines" \
   --window-size 600 400 \
   --icon-size 120 \
   --app-drop-link 450 200 \

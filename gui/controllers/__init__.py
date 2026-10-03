@@ -1,4 +1,4 @@
-"""Controllers package for the Airfoil Fitter GUI.
+"""Controllers package for the Airfoil Splines GUI.
 
 This package contains the refactored controller components that handle
 different aspects of the application logic.

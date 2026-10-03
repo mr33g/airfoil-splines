@@ -8,8 +8,8 @@ from pathlib import Path
 from unittest.mock import patch
 import numpy as np
 from PySide6.QtWidgets import QApplication, QFileDialog
-from airfoil_fit import export_bspline_to_bsp
-from airfoil_fit.data_loader import export_airfoil_to_selig_format, load_airfoil_data
+from airfoil_splines_core import export_bspline_to_bsp
+from airfoil_splines_core.data_loader import export_airfoil_to_selig_format, load_airfoil_data
 from gui.main_window import MainWindow
 from gui.controllers import MainController
 from utils.bsp_importer import load_bspline_from_bsp

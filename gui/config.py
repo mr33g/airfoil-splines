@@ -1,4 +1,4 @@
-"""Desktop preferences; numerical policy lives in AirfoilFit."""
+"""Desktop preferences; numerical policy lives in airfoil-splines-core."""
 import json
 import os
 import sys
@@ -22,14 +22,14 @@ COMB_DENSITY_MAX: int = 1000
 COMB_DENSITY_DEFAULT: int = 200
 COMB_SCALE_DEFAULT: float = 0.020  # Reduced from 0.050 for better initial viewport fit
 
-USER_CONFIG_FILENAME = "airfoilfitter.config.json"
+USER_CONFIG_FILENAME = "airfoil_splines.config.json"
 LOADED_USER_CONFIG_PATH: str | None = None
 
 
 def _candidate_user_config_paths() -> list[Path]:
     candidates: list[Path] = []
 
-    env_path = os.environ.get("AIRFOILFITTER_CONFIG", "").strip()
+    env_path = os.environ.get("AIRFOIL_SPLINES_CONFIG", "").strip()
     if env_path:
         candidates.append(Path(env_path).expanduser())
 

@@ -1,4 +1,4 @@
-# Airfoil Fitter
+# Airfoil Splines
 
 A desktop application for fitting B-spline curves to airfoil coordinate data and exporting the result for use in CAD software.
 
@@ -17,7 +17,7 @@ Download and execute the latest .msi installer package.
 
 #### Installation Procedure
 
-1. Clone this repository and `mr33g/AirfoilFit` into sibling folders named `AirfoilFitter` and `AirfoilFit`.
+1. Clone this repository and `mr33g/airfoil-splines-core` into sibling folders named `airfoil-splines` and `airfoil-splines-core`.
 
 2. Create and activate a virtual environment (recommended):
    ```
@@ -31,7 +31,7 @@ Download and execute the latest .msi installer package.
    python -m pip install -r requirements.txt
    ```
 
-AirfoilFit is installed in editable mode from the sibling folder. To use a different location, install it with `python -m pip install -e /path/to/AirfoilFit` and install the remaining dependencies separately. Packaged installers include the library; end users do not need a separate checkout.
+airfoil-splines-core is installed in editable mode from the sibling folder. To use a different location, install it with `python -m pip install -e /path/to/airfoil-splines-core` and install the remaining dependencies separately. Packaged installers include the library; end users do not need a separate checkout.
 
 #### Dependencies
 
@@ -42,7 +42,7 @@ AirfoilFit is installed in editable mode from the sibling folder. To use a diffe
 | PySide6    | Qt GUI framework                     |
 | pyqtgraph  | Interactive plotting                 |
 | ezdxf      | DXF file export                      |
-| airfoil-fit | Shared fitting and coordinate loading |
+| airfoil-splines-core | Shared fitting and coordinate loading |
 | pyinstaller| Installer utilities                  |
 
 
@@ -67,7 +67,7 @@ python run_gui.py
    - **Initial CP count**: Initial control points per surface. Must be greater than degree. Point insertion is biased towards the location of max error, so starting from a low initial count will produce different results than a high initial count.
    - **Smoothness**: Fourth-difference regularization weight. Higher values produce smoother control polygons at the cost of fitting accuracy. The slider uses a nonlinear mapping so the low end gives finer control.
    - **G2 / G3**: Enable curvature (G2) or curvature-derivative (G3) continuity at the leading edge.
-   Trailing-edge direction is estimated automatically by AirfoilFit.
+   Trailing-edge direction is estimated automatically by airfoil-splines-core.
 
    Releasing the **Smoothness** slider triggers a fresh fit at the selected setting. Degree and continuity changes re-fit the current model; continuity changes retain inserted knots. The initial count takes effect only on Fit/Reset.
 
@@ -86,14 +86,14 @@ python run_gui.py
 
 Runtime defaults are defined in `gui/config.py`.
 For packaged app installs, the installer ships a user-editable
-`airfoilfitter.config.json` next to `AirfoilFitter.exe` in the install folder.
+`airfoil_splines.config.json` next to `AirfoilSplines.exe` in the install folder.
 If this file exists, matching uppercase keys override defaults at startup.
-You can also point to a custom file with `AIRFOILFITTER_CONFIG`.
+You can also point to a custom file with `AIRFOIL_SPLINES_CONFIG`.
 
 Override lookup order:
-1. Path from `AIRFOILFITTER_CONFIG` (if set)
-2. `airfoilfitter.config.json` next to the executable
-3. `airfoilfitter.config.json` in the project root (development fallback)
+1. Path from `AIRFOIL_SPLINES_CONFIG` (if set)
+2. `airfoil_splines.config.json` next to the executable
+3. `airfoil_splines.config.json` in the project root (development fallback)
 
 Available keys:
 
@@ -122,7 +122,7 @@ This application fits smooth B-spline curves to the coordinate data, enforcing g
 
 ### Architecture
 
-AirfoilFit owns coordinate parsing/normalization, vertical-error fitting, continuity constraints, knot refinement, and BSP/DAT output. This app owns Qt controls, plotting, background jobs, import workflow, and DXF export. Numerical code is not copied into the app.
+airfoil-splines-core owns coordinate parsing/normalization, vertical-error fitting, continuity constraints, knot refinement, and BSP/DAT output. This app owns Qt controls, plotting, background jobs, import workflow, and DXF export. Numerical code is not copied into the app.
 
 `gui/fit_session.py` holds desktop fitting state; `gui/airfoil_model.py` bridges the source model to Qt signals. Workers operate on a candidate session and the GUI adopts it only after success, preserving the previous result when an operation fails.
 

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 import numpy as np
-from airfoil_fit import AirfoilProcessor, BSplineProcessor
+from airfoil_splines_core import AirfoilProcessor, BSplineProcessor
 from gui.fit_session import FitSession
 
 

@@ -1,4 +1,4 @@
-"""Main window layout for the Airfoil Fitter GUI.
+"""Main window layout for the Airfoil Splines GUI.
 
 This module purposefully holds *only* the Qt layout code – no business
 logic. All interactions are delegated to :pyclass:`gui.controllers.MainController`.
@@ -34,7 +34,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
 
-        self.setWindowTitle("Airfoil Fitter")
+        self.setWindowTitle("Airfoil Splines")
         self.resize(1200, 800)
 
         central = QWidget()

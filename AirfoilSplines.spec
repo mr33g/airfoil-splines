@@ -4,7 +4,7 @@ import sys
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 
 # Fail early if the shared dependency has not been installed.
-import airfoil_fit
+import airfoil_splines_core
 block_cipher = None
 
 is_win = sys.platform == 'win32'
@@ -20,8 +20,8 @@ analysis = Analysis(
     ['run_gui.py'],
     pathex=['.'],
     binaries=[],
-    datas=[('img', 'img')] + copy_metadata('airfoil-fit'),
-    hiddenimports=collect_submodules("airfoil_fit"),
+    datas=[('img', 'img')] + copy_metadata('airfoil-splines-core'),
+    hiddenimports=collect_submodules("airfoil_splines_core"),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -39,7 +39,7 @@ exe = EXE(
     analysis.scripts,
     [],
     exclude_binaries=True,
-    name='AirfoilFitter',
+    name='AirfoilSplines',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -51,9 +51,9 @@ exe = EXE(
 if is_darwin:
     app = BUNDLE(
         exe,
-        name='AirfoilFitter.app',
+        name='AirfoilSplines.app',
         icon=icon_path,
-        bundle_identifier='com.michaelreeg.airfoilfitter',
+        bundle_identifier='com.michaelreeg.airfoil_splines',
     )
     coll = COLLECT(
         app,
@@ -62,7 +62,7 @@ if is_darwin:
         strip=False,
         upx=True,
         upx_exclude=[],
-        name='AirfoilFitter',
+        name='AirfoilSplines',
     )
 else:
     coll = COLLECT(
@@ -72,5 +72,5 @@ else:
         strip=False,
         upx=True,
         upx_exclude=[],
-        name='AirfoilFitter',
+        name='AirfoilSplines',
     )

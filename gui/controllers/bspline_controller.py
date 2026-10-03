@@ -1,4 +1,4 @@
-"""Translate desktop actions into isolated AirfoilFit session operations."""
+"""Translate desktop actions into isolated airfoil-splines-core session operations."""
 from copy import deepcopy
 from PySide6.QtCore import QObject
 from gui import config

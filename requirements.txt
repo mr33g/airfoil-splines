@@ -1,5 +1,5 @@
 # Local shared-library checkout (install from the app directory).
--e ../AirfoilFit
+-e ../airfoil-splines-core
 scipy
 numpy
 ezdxf

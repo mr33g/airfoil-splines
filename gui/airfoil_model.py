@@ -1,7 +1,7 @@
-"""Qt signals and plot data around a headless AirfoilFit source model."""
+"""Qt signals and plot data around a headless airfoil-splines-core source model."""
 from PySide6.QtCore import QObject, Signal
-from airfoil_fit import AirfoilProcessor
-from airfoil_fit.bspline_helper import apply_te_thickness_to_reference
+from airfoil_splines_core import AirfoilProcessor
+from airfoil_splines_core.bspline_helper import apply_te_thickness_to_reference
 from gui import config
 from gui.plot_data import calculate_control_point_fourth_difference_data
 

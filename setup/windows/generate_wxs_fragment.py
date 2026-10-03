@@ -101,7 +101,7 @@ def generate_wxs_fragment(source_dir, output_file, component_group_id, directory
 
             ET.SubElement(comp, "RegistryValue",
                           Root="HKCU",
-                          Key=f"Software\\AirfoilFitter\\Files\\{file_id}",
+                          Key=f"Software\\AirfoilSplines\\Files\\{file_id}",
                           Name="installed",
                           Type="integer",
                           Value="1",

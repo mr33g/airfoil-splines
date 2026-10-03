@@ -32,14 +32,14 @@ if ($Version.StartsWith("v")) {
 $root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $distDir = Join-Path $root "dist"
 $wxsOut = Join-Path $PSScriptRoot "Files.wxs"
-$msiOut = Join-Path $distDir "AirfoilFitter-$Version.msi"
+$msiOut = Join-Path $distDir "AirfoilSplines-$Version.msi"
 
 Push-Location $root
 try {
-    & $Python -m PyInstaller AirfoilFitter.spec --noconfirm --clean
+    & $Python -m PyInstaller AirfoilSplines.spec --noconfirm --clean
     if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed with exit code $LASTEXITCODE" }
     $configSource = Join-Path $root "setup\default-config.json"
-    $configDest = Join-Path $distDir "AirfoilFitter\\airfoilfitter.config.json"
+    $configDest = Join-Path $distDir "AirfoilSplines\\airfoil_splines.config.json"
     if (Test-Path $configSource) {
         Copy-Item -Path $configSource -Destination $configDest -Force
     } else {
@@ -51,9 +51,9 @@ try {
 
 Push-Location $PSScriptRoot
 try {
-    & $Python .\generate_wxs_fragment.py --source-dir $distDir\AirfoilFitter --output $wxsOut
+    & $Python .\generate_wxs_fragment.py --source-dir $distDir\AirfoilSplines --output $wxsOut
     if ($LASTEXITCODE -ne 0) { throw "WiX file harvesting failed with exit code $LASTEXITCODE" }
-    wix build .\AirfoilFitter.wxs $wxsOut -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -d Version=$Version -o $msiOut
+    wix build .\AirfoilSplines.wxs $wxsOut -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -d Version=$Version -o $msiOut
     if ($LASTEXITCODE -ne 0) { throw "WiX failed with exit code $LASTEXITCODE" }
 } finally {
     Pop-Location

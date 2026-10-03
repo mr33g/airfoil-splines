@@ -1,4 +1,4 @@
-"""Main controller for the Airfoil Fitter GUI.
+"""Main controller for the Airfoil Splines GUI.
 
 Orchestrates the other controllers and handles signal routing between GUI and processor.
 """

@@ -1,9 +1,9 @@
-"""Desktop fit state and operations; numerical work belongs to AirfoilFit."""
+"""Desktop fit state and operations; numerical work belongs to airfoil-splines-core."""
 from copy import deepcopy
 import numpy as np
-from airfoil_fit import BSplineProcessor
-from airfoil_fit.bspline_helper import apply_te_thickness_to_reference
-from airfoil_fit.optimization import vertical_error_metrics
+from airfoil_splines_core import BSplineProcessor
+from airfoil_splines_core.bspline_helper import apply_te_thickness_to_reference
+from airfoil_splines_core.optimization import vertical_error_metrics
 
 
 class FitSession:

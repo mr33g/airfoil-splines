@@ -10,5 +10,5 @@ __pycache__/
 *.pyc
 *cwd
 setup/windows/Files.wxs
-airfoilfitter.config.json
+airfoil_splines.config.json
 debug.log
