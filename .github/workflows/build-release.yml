@@ -34,7 +34,6 @@ jobs:
         with:
           repository: mr33g/airfoil-splines-core
           ref: main
-          token: ${{ secrets.AIRFOILFIT_READ_TOKEN }}
           path: airfoil-splines-core
           persist-credentials: false
 
