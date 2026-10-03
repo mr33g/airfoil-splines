@@ -6,10 +6,11 @@ This repo supports local setup for Windows (MSI) and macOS (DMG) without GitHub 
 
 Prereqs:
 - Python 3.10+
-- WiX v4+ (`dotnet tool install --global wix`)
+- A sibling `../AirfoilFit` checkout, installed with `python -m pip install -r requirements.txt`
+- WiX 6.0.2 (`dotnet tool install --global wix --version 6.0.2`)
 - WiX extensions:
-  - `wix extension add -g WixToolset.UI.wixext`
-  - `wix extension add -g WixToolset.Util.wixext`
+  - `wix extension add -g WixToolset.UI.wixext/6.0.2`
+  - `wix extension add -g WixToolset.Util.wixext/6.0.2`
 
 Build:
 ```powershell
@@ -20,6 +21,15 @@ Override version:
 ```powershell
 setup\windows\build.ps1 -Version 1.2.3
 ```
+
+Use `-Python .venv\Scripts\python.exe` to build with the project's virtual environment.
+The shared `airfoil_fit` package and its metadata are bundled into the application;
+users do not need a separate Python or core-library installation.
+The installer copies `setup/default-config.json` beside the executable as
+`airfoilfitter.config.json`, so local preference overrides do not affect releases.
+
+GitHub Actions checks out both repositories, runs the desktop tests, and builds the MSI.
+Tag builds attach it to the release; manual builds upload a workflow artifact only.
 
 Output:
 - `dist\AirfoilFitter-x.y.z.msi`

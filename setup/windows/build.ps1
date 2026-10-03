@@ -1,8 +1,10 @@
 param(
-    [string]$Version = ""
+    [string]$Version = "",
+    [string]$Python = "python"
 )
 
 $ErrorActionPreference = "Stop"
+$Python = (Get-Command $Python -ErrorAction Stop).Source
 
 function Get-VersionFromGit {
     try {
@@ -34,8 +36,9 @@ $msiOut = Join-Path $distDir "AirfoilFitter-$Version.msi"
 
 Push-Location $root
 try {
-    pyinstaller AirfoilFitter.spec --noconfirm --clean
-    $configSource = Join-Path $root "airfoilfitter.config.json"
+    & $Python -m PyInstaller AirfoilFitter.spec --noconfirm --clean
+    if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed with exit code $LASTEXITCODE" }
+    $configSource = Join-Path $root "setup\default-config.json"
     $configDest = Join-Path $distDir "AirfoilFitter\\airfoilfitter.config.json"
     if (Test-Path $configSource) {
         Copy-Item -Path $configSource -Destination $configDest -Force
@@ -48,8 +51,10 @@ try {
 
 Push-Location $PSScriptRoot
 try {
-    python .\generate_wxs_fragment.py --source-dir $distDir\AirfoilFitter --output $wxsOut
+    & $Python .\generate_wxs_fragment.py --source-dir $distDir\AirfoilFitter --output $wxsOut
+    if ($LASTEXITCODE -ne 0) { throw "WiX file harvesting failed with exit code $LASTEXITCODE" }
     wix build .\AirfoilFitter.wxs $wxsOut -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -d Version=$Version -o $msiOut
+    if ($LASTEXITCODE -ne 0) { throw "WiX failed with exit code $LASTEXITCODE" }
 } finally {
     Pop-Location
 }

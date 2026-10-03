@@ -27,6 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: AirfoilFitter
+          fetch-depth: 0
 
       - name: Checkout shared fitting library
         uses: actions/checkout@v4
@@ -54,7 +55,7 @@ jobs:
 
       - name: Install WiX
         run: |
-          dotnet tool install --global wix
+          dotnet tool install --global wix --version 6.0.2
           wix extension add -g WixToolset.UI.wixext/6.0.2
           wix extension add -g WixToolset.Util.wixext/6.0.2
 
@@ -69,6 +70,7 @@ jobs:
           path: AirfoilFitter/dist/AirfoilFitter-*.msi
 
       - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: AirfoilFitter/dist/AirfoilFitter-*.msi
