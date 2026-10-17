@@ -150,6 +150,12 @@ class DesktopTests(unittest.TestCase):
         opt.smoothness_penalty_slider.sliderReleased.emit()
         self.wait()
         self.assertAlmostEqual(self.fit.bspline_processor.smoothing_weight, opt.smoothness_penalty_value())
+        opt.smoothness_penalty_slider.setValue(1)
+        self.assertAlmostEqual(opt.smoothness_penalty_value(), 0.0001)
+        opt.smoothness_penalty_spin.setValue(0.0123)
+        opt.smoothness_penalty_spin.editingFinished.emit()
+        self.wait()
+        self.assertAlmostEqual(self.fit.bspline_processor.smoothing_weight, 0.0123)
 
     def test_chord_updates_applied_thickness_units(self):
         self.fitted()
