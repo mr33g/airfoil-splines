@@ -20,8 +20,7 @@ from utils.dxf_exporter import (
     DXF_EXPORT_MODE_NURBS,
     export_bspline_to_dxf,
 )
-from airfoil_splines_core import AirfoilProcessor, BSplineProcessor, export_bspline_to_bsp
-from utils.bsp_importer import load_bspline_from_bsp
+from airfoil_splines_core import AirfoilProcessor, BSplineProcessor, export_bspline_to_bsp, load_bspline_from_bsp
 from airfoil_splines_core.data_loader import export_airfoil_to_selig_format
 from gui.fit_session import FitSession
 

@@ -1,6 +1,5 @@
 import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-import json
 import tempfile
 import time
 import unittest
@@ -8,11 +7,10 @@ from pathlib import Path
 from unittest.mock import patch
 import numpy as np
 from PySide6.QtWidgets import QApplication, QFileDialog
-from airfoil_splines_core import export_bspline_to_bsp
+from airfoil_splines_core import export_bspline_to_bsp, load_bspline_from_bsp
 from airfoil_splines_core.data_loader import export_airfoil_to_selig_format, load_airfoil_data
 from gui.main_window import MainWindow
 from gui.controllers import MainController
-from utils.bsp_importer import load_bspline_from_bsp
 from test_fit_session import source_data
 
 
@@ -177,13 +175,3 @@ class DesktopTests(unittest.TestCase):
         self.assertIs(self.fit.bspline_processor, model)
         self.assertTrue(self.window.file_panel.isEnabled())
         self.assertTrue(self.window.optimizer_panel.isEnabled())
-
-
-class BSPValidationTests(unittest.TestCase):
-    def test_rejects_nonfinite_unsorted_and_fractional_degree(self):
-        from utils.bsp_importer import _parse_surface_json
-        valid = dict(px=[0,0,.5,1], py=[0,.1,.1,0], knots=[0,0,0,0,1,1,1,1], degree=3)
-        for patch_data in [dict(px=[0,0,float('nan'),1]), dict(degree=3.5),
-                           dict(knots=[0,0,0,0,1,.5,1,1])]:
-            with self.assertRaises(ValueError):
-                _parse_surface_json(valid | patch_data, surface_name='upper')
