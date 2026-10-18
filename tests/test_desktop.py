@@ -56,6 +56,8 @@ class DesktopTests(unittest.TestCase):
 
     def test_load_fit_reset_and_one_surface_insertion(self):
         self.assertIsNotNone(self.controller.processor.upper_data)
+        self.assertEqual(self.window.optimizer_panel.initial_cp_spin.value(), 8)
+        self.assertAlmostEqual(self.window.optimizer_panel.smoothness_penalty_value(), 0.0007)
         self.fitted()
         model = self.fit.bspline_processor
         self.assertIsNotNone(self.controller.processor._last_plot_data['comb_bspline'])

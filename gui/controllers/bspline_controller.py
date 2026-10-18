@@ -92,6 +92,7 @@ class BSplineController(QObject):
             if worker.success:
                 self.session = worker.session
                 self._sync_model()
+                self._sync_effective_fit_settings()
                 self._update_final_error_metrics()
                 self._update_fit_button_text()
                 self._update_plot_with_bsplines()
@@ -100,6 +101,25 @@ class BSplineController(QObject):
         finally:
             worker.deleteLater()
             self._set_buttons_enabled(True)
+
+    def _sync_effective_fit_settings(self):
+        """Show fallback settings without triggering another refit."""
+        model = self.bspline_processor
+        opt = self.window.optimizer_panel
+        widgets = (opt.smoothness_penalty_slider, opt.smoothness_penalty_spin,
+                   opt.g2_checkbox, opt.g3_checkbox)
+        for widget in widgets:
+            widget.blockSignals(True)
+        try:
+            opt.smoothness_penalty_spin.setValue(model.smoothing_weight)
+            opt.smoothness_penalty_slider.setValue(
+                opt._slider_from_smoothness_value(model.smoothing_weight))
+            opt.g2_checkbox.setChecked(model.enforce_g2)
+            opt.g3_checkbox.setChecked(model.enforce_g3)
+            opt.g3_checkbox.setEnabled(model.enforce_g2)
+        finally:
+            for widget in widgets:
+                widget.blockSignals(False)
 
     def _set_buttons_enabled(self, enabled):
         self.window.file_panel.setEnabled(enabled)

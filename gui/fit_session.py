@@ -1,7 +1,7 @@
 """Desktop fit state and operations; numerical work belongs to airfoil-splines-core."""
 from copy import deepcopy
 import numpy as np
-from airfoil_splines_core import BSplineProcessor
+from airfoil_splines_core import BSplineProcessor, fit_with_recovery
 from airfoil_splines_core.bspline_helper import apply_te_thickness_to_reference
 from airfoil_splines_core.optimization import vertical_error_metrics
 
@@ -12,7 +12,6 @@ class FitSession:
         self.te_thickness = None
 
     def fit(self, source, *, degree, counts, continuity, smoothing, preserve_knots=False):
-        candidate = BSplineProcessor(degree)
         upper, lower = source.upper_data, source.lower_data
         if upper is None or lower is None:
             raise ValueError("Load airfoil data first.")
@@ -20,16 +19,23 @@ class FitSession:
             upper, lower = apply_te_thickness_to_reference(upper, lower, self.te_thickness)
         knots = None
         if preserve_knots and self.model.is_fitted():
-            if (candidate.degree_upper, candidate.degree_lower) == self.model.fitted_degree:
+            requested_degree = degree if isinstance(degree, tuple) else (degree, degree)
+            if tuple(requested_degree) == self.model.fitted_degree:
                 knots = (self.model.upper_knot_vector, self.model.lower_knot_vector)
-        result = candidate.fit_bspline(
-            upper, lower, counts, continuity=continuity, smoothing_weight=smoothing,
+        recovery = fit_with_recovery(
+            degree, upper, lower, counts,
+            continuity=continuity, smoothing_weight=smoothing,
             upper_te_tangent_vector=source.upper_te_tangent_vector,
             lower_te_tangent_vector=source.lower_te_tangent_vector, knot_vectors=knots)
-        if not result:
-            raise ValueError(result.message)
-        self.model = candidate
-        return result.message
+        if not recovery:
+            raise ValueError(recovery.failure_message)
+        self.model = recovery.processor
+        if not recovery.fallback_used:
+            return recovery.result.message
+        return (
+            f'Fit recovered: requested G{continuity} smoothing={smoothing:g}; '
+            f'using G{recovery.effective_continuity} '
+            f'smoothing={recovery.effective_smoothing:g}.')
 
     def insert(self, surface):
         candidate = deepcopy(self.model)

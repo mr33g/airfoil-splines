@@ -6,8 +6,8 @@ from pathlib import Path
 
 DEBUG_WORKER_LOGGING: bool = True
 DEFAULT_BSPLINE_DEGREE: int = 4  # Degree of B-spline curves (3-7 recommended for airfoils)
-DEFAULT_BSPLINE_CP: int = 9   # Initial number of control points per surface (must be >= degree + 1)
-DEFAULT_SMOOTHNESS_PENALTY: float = 0.0  # Weight for control point smoothing penalty (higher = smoother, lower = more accurate)
+DEFAULT_BSPLINE_CP: int = 8   # Initial number of control points per surface (must be >= degree + 1)
+DEFAULT_SMOOTHNESS_PENALTY: float = 0.0007  # Weight for control point smoothing penalty (higher = smoother, lower = more accurate)
 DEFAULT_CHORD_LENGTH_MM: float = 200.0
 DEFAULT_TE_THICKNESS_MM: float = 0.0
 ENABLE_BSP_EXPORT: bool = True

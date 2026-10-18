@@ -100,9 +100,7 @@ class OptimizerSettingsWidget(QGroupBox):
         self.smoothness_penalty_spin.setRange(0.0, self._SMOOTHNESS_MAX)
         self.smoothness_penalty_spin.setSingleStep(self._SMOOTHNESS_MIN_EFFECTIVE)
         self.smoothness_penalty_spin.setMinimumWidth(100)
-        self.smoothness_penalty_spin.setValue(
-            self._smoothness_from_slider_value(self.smoothness_penalty_slider.value())
-        )
+        self.smoothness_penalty_spin.setValue(float(config.DEFAULT_SMOOTHNESS_PENALTY))
         self.smoothness_penalty_spin.setToolTip(
             "Enter the smoothness penalty directly. Use 0 to disable smoothing."
         )

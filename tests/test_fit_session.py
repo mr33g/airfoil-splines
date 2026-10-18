@@ -67,6 +67,26 @@ class FitSessionTests(unittest.TestCase):
             self.fit(counts=2)
         self.assertIs(self.session.model, model)
 
+    def test_failed_g2_fit_recovers_to_g1_and_adopts_effective_settings(self):
+        original = BSplineProcessor.fit_bspline
+        calls = []
+
+        def reject_g2(processor, upper, lower, counts, **kwargs):
+            calls.append((kwargs['smoothing_weight'], kwargs['continuity']))
+            if kwargs['continuity'] != 1:
+                from airfoil_splines_core import FitResult
+                return FitResult(False, kwargs['continuity'], None, 'forced failure')
+            return original(processor, upper, lower, counts, **kwargs)
+
+        with patch.object(BSplineProcessor, 'fit_bspline', autospec=True,
+                          side_effect=reject_g2):
+            message = self.fit(counts=8, continuity=2, smoothing=.01)
+
+        self.assertEqual(calls, [(.01, 2), (0.0, 2), (0.0, 1)])
+        self.assertIn('Fit recovered', message)
+        self.assertFalse(self.session.model.enforce_g2)
+        self.assertEqual(self.session.model.smoothing_weight, 0.0)
+
     def test_failed_thickness_and_insertion_preserve_state(self):
         model = self.session.model
         with patch.object(BSplineProcessor, 'fit_bspline', side_effect=ValueError('failure')):

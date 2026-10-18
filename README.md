@@ -101,8 +101,8 @@ Available keys:
 |------------------------------|---------|----------------------------------------------------------|
 | `DEBUG_WORKER_LOGGING`       | False   | Enable verbose worker logging                            |
 | `DEFAULT_BSPLINE_DEGREE`     | 4       | Initial B-spline degree                                  |
-| `DEFAULT_BSPLINE_CP`         | 9       | Initial control points per surface                       |
-| `DEFAULT_SMOOTHNESS_PENALTY` | 0.0     | Base fourth-difference smoothing weight                  |
+| `DEFAULT_BSPLINE_CP`         | 8       | Initial control points per surface                       |
+| `DEFAULT_SMOOTHNESS_PENALTY` | 0.0007  | Base fourth-difference smoothing weight                  |
 | `DEFAULT_CHORD_LENGTH_MM`    | 200.0   | Default chord length used for export scaling             |
 | `DEFAULT_TE_THICKNESS_MM`    | 0.0     | Default trailing edge thickness value in the UI          |
 | `ENABLE_BSP_EXPORT`          | False   | Enable BSP export action                                 |
@@ -123,6 +123,8 @@ This application fits smooth B-spline curves to the coordinate data, enforcing g
 ### Architecture
 
 airfoil-splines-core owns coordinate parsing/normalization, vertical-error fitting, continuity constraints, knot refinement, and BSP/DAT output. This app owns Qt controls, plotting, background jobs, import workflow, and DXF export. Numerical code is not copied into the app.
+
+If a fit fails, the shared recovery policy retries the same continuity at zero smoothing, then G1 at zero smoothing. The optimizer controls update to show the settings that produced the accepted fit.
 
 `gui/fit_session.py` holds desktop fitting state; `gui/airfoil_model.py` bridges the source model to Qt signals. Workers operate on a candidate session and the GUI adopts it only after success, preserving the previous result when an operation fails.
 
