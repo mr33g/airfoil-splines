@@ -65,7 +65,7 @@ python run_gui.py
 3. **Adjust Parameters**
    - **Degree**: B-spline polynomial degree (4–12). Higher degrees allow smoother curves but may be less stable.
    - **Initial CP count**: Initial control points per surface. Must be greater than degree. Point insertion is biased towards the location of max error, so starting from a low initial count will produce different results than a high initial count.
-   - **Smoothness**: Fourth-difference regularization weight. Higher values produce smoother control polygons at the cost of fitting accuracy. The slider uses a nonlinear mapping so the low end gives finer control.
+   - **Smoothness**: The slider uses a friendly 0–100 scale, mapped to fourth-difference regularization weights 0–0.01 in 0.0001 increments. The default is 7 (weight 0.0007). Higher values produce smoother control polygons at the cost of fitting accuracy.
    - **G2 / G3**: Enable curvature (G2) or curvature-derivative (G3) continuity at the leading edge.
    Trailing-edge direction is estimated automatically by airfoil-splines-core.
 

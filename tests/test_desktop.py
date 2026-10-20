@@ -57,6 +57,8 @@ class DesktopTests(unittest.TestCase):
     def test_load_fit_reset_and_one_surface_insertion(self):
         self.assertIsNotNone(self.controller.processor.upper_data)
         self.assertEqual(self.window.optimizer_panel.initial_cp_spin.value(), 8)
+        self.assertEqual(self.window.optimizer_panel.smoothness_penalty_slider.value(), 7)
+        self.assertEqual(self.window.optimizer_panel.smoothness_penalty_spin.value(), 7)
         self.assertAlmostEqual(self.window.optimizer_panel.smoothness_penalty_value(), 0.0007)
         self.fitted()
         model = self.fit.bspline_processor
@@ -75,6 +77,15 @@ class DesktopTests(unittest.TestCase):
         self.load(self.dat)
         self.assertFalse(self.fit.bspline_processor.is_fitted())
         self.assertFalse(self.window.file_panel.export_bsp_button.isEnabled())
+
+    def test_smoothing_slider_uses_human_friendly_linear_scale(self):
+        opt = self.window.optimizer_panel
+        for ui_value, weight in ((0, 0.0), (1, 0.0001), (7, 0.0007),
+                                 (100, 0.01)):
+            with self.subTest(ui_value=ui_value):
+                opt.smoothness_penalty_slider.setValue(ui_value)
+                self.assertEqual(opt.smoothness_penalty_spin.value(), ui_value)
+                self.assertAlmostEqual(opt.smoothness_penalty_value(), weight)
 
     def test_thickness_controls_and_worker_isolation(self):
         self.fitted()
@@ -149,15 +160,17 @@ class DesktopTests(unittest.TestCase):
         self.wait()
         self.assertEqual(self.fit.bspline_processor.fitted_degree, (5,5))
         opt.smoothness_penalty_slider.setValue(30)
+        self.assertEqual(opt.smoothness_penalty_spin.value(), 30)
         opt.smoothness_penalty_slider.sliderReleased.emit()
         self.wait()
-        self.assertAlmostEqual(self.fit.bspline_processor.smoothing_weight, opt.smoothness_penalty_value())
+        self.assertAlmostEqual(self.fit.bspline_processor.smoothing_weight, 0.003)
         opt.smoothness_penalty_slider.setValue(1)
         self.assertAlmostEqual(opt.smoothness_penalty_value(), 0.0001)
-        opt.smoothness_penalty_spin.setValue(0.0123)
+        opt.smoothness_penalty_spin.setValue(100)
+        self.assertEqual(opt.smoothness_penalty_slider.value(), 100)
         opt.smoothness_penalty_spin.editingFinished.emit()
         self.wait()
-        self.assertAlmostEqual(self.fit.bspline_processor.smoothing_weight, 0.0123)
+        self.assertAlmostEqual(self.fit.bspline_processor.smoothing_weight, 0.01)
 
     def test_chord_updates_applied_thickness_units(self):
         self.fitted()

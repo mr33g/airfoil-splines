@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QGroupBox,
@@ -11,7 +10,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QCheckBox,
     QPushButton,
-    QDoubleSpinBox,
     QWidget,
     QSpinBox,
     QSlider,
@@ -22,9 +20,6 @@ from gui import config
 
 class OptimizerSettingsWidget(QGroupBox):
     """Panel exposing parameters for the B-spline airfoil optimiser."""
-
-    _SMOOTHNESS_MIN_EFFECTIVE = 0.0001
-    _SMOOTHNESS_MAX = 1.0
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__("Optimizer Settings", parent)
@@ -82,8 +77,8 @@ class OptimizerSettingsWidget(QGroupBox):
         # Smoothness penalty setting
         self.smoothness_penalty_label = QLabel("Smoothness:")
         self.smoothness_penalty_slider = QSlider(Qt.Horizontal)
-        self.smoothness_penalty_slider.setMinimum(0)
-        self.smoothness_penalty_slider.setMaximum(100)
+        self.smoothness_penalty_slider.setMinimum(self._smoothness_ui_min())
+        self.smoothness_penalty_slider.setMaximum(self._smoothness_ui_max())
         self.smoothness_penalty_slider.setSingleStep(1)
         self.smoothness_penalty_slider.setPageStep(5)
         self.smoothness_penalty_slider.setValue(
@@ -92,17 +87,19 @@ class OptimizerSettingsWidget(QGroupBox):
         self.smoothness_penalty_slider.setToolTip(
             "Controls the tradeoff between smoothness and accuracy.\n"
             "0 disables smoothing.\n"
-            "The smallest positive slider value maps to 0.0001.\n"
+            "Each step represents a smoothing weight of 0.0001.\n"
             "Higher values prioritize smoothness, but may reduce accuracy."
         )
-        self.smoothness_penalty_spin = QDoubleSpinBox()
-        self.smoothness_penalty_spin.setDecimals(6)
-        self.smoothness_penalty_spin.setRange(0.0, self._SMOOTHNESS_MAX)
-        self.smoothness_penalty_spin.setSingleStep(self._SMOOTHNESS_MIN_EFFECTIVE)
+        self.smoothness_penalty_spin = QSpinBox()
+        self.smoothness_penalty_spin.setRange(
+            self._smoothness_ui_min(), self._smoothness_ui_max())
+        self.smoothness_penalty_spin.setSingleStep(1)
         self.smoothness_penalty_spin.setMinimumWidth(100)
-        self.smoothness_penalty_spin.setValue(float(config.DEFAULT_SMOOTHNESS_PENALTY))
+        self.smoothness_penalty_spin.setValue(
+            self._slider_from_smoothness_value(float(config.DEFAULT_SMOOTHNESS_PENALTY))
+        )
         self.smoothness_penalty_spin.setToolTip(
-            "Enter the smoothness penalty directly. Use 0 to disable smoothing."
+            "Smoothing level from 0 to 100. Each step represents 0.0001."
         )
 
         # Action buttons - make them more prominent
@@ -198,42 +195,36 @@ class OptimizerSettingsWidget(QGroupBox):
             self.initial_cp_spin.setValue(min_cp)
 
     def smoothness_penalty_value(self) -> float:
-        """Return the exact smoothness value from the numeric input."""
-        return float(self.smoothness_penalty_spin.value())
+        """Translate the human-friendly smoothing level to its fitter weight."""
+        return self._smoothness_from_slider_value(self.smoothness_penalty_spin.value())
 
     def _update_smoothness_spin(self, slider_value: int) -> None:
-        """Update the numeric input with the value represented by the slider."""
-        value = self._smoothness_from_slider_value(slider_value)
+        """Keep the numeric smoothing level synchronized with the slider."""
         self.smoothness_penalty_spin.blockSignals(True)
-        self.smoothness_penalty_spin.setValue(value)
+        self.smoothness_penalty_spin.setValue(int(slider_value))
         self.smoothness_penalty_spin.blockSignals(False)
 
-    def _update_smoothness_slider(self, smoothness_value: float) -> None:
-        """Move the slider to the position nearest the entered numeric value."""
+    def _update_smoothness_slider(self, ui_value: int) -> None:
+        """Keep the slider synchronized with the numeric smoothing level."""
         self.smoothness_penalty_slider.blockSignals(True)
-        self.smoothness_penalty_slider.setValue(
-            self._slider_from_smoothness_value(smoothness_value)
-        )
+        self.smoothness_penalty_slider.setValue(int(ui_value))
         self.smoothness_penalty_slider.blockSignals(False)
 
     @classmethod
     def _smoothness_from_slider_value(cls, slider_value: int) -> float:
-        value = int(slider_value)
-        if value <= 0:
-            return 0.0
-
-        # Log scale gives usable resolution near the newly established lower
-        # bound while still reaching 1.0 at the right edge of the slider.
-        t = (value - 1) / 99.0
-        ratio = cls._SMOOTHNESS_MAX / cls._SMOOTHNESS_MIN_EFFECTIVE
-        return float(cls._SMOOTHNESS_MIN_EFFECTIVE * (ratio ** t))
+        value = max(cls._smoothness_ui_min(),
+                    min(cls._smoothness_ui_max(), int(slider_value)))
+        return value / config.SMOOTHNESS_UI_SCALE
 
     @classmethod
     def _slider_from_smoothness_value(cls, smoothness_value: float) -> int:
-        value = float(smoothness_value)
-        if value <= 0.0:
-            return 0
-        value = max(cls._SMOOTHNESS_MIN_EFFECTIVE, min(cls._SMOOTHNESS_MAX, value))
-        ratio = cls._SMOOTHNESS_MAX / cls._SMOOTHNESS_MIN_EFFECTIVE
-        t = np.log(value / cls._SMOOTHNESS_MIN_EFFECTIVE) / np.log(ratio)
-        return int(round(1 + 99 * t))
+        ui_value = round(float(smoothness_value) * config.SMOOTHNESS_UI_SCALE)
+        return max(cls._smoothness_ui_min(), min(cls._smoothness_ui_max(), ui_value))
+
+    @staticmethod
+    def _smoothness_ui_min() -> int:
+        return round(config.MIN_SMOOTHNESS_PENALTY * config.SMOOTHNESS_UI_SCALE)
+
+    @staticmethod
+    def _smoothness_ui_max() -> int:
+        return round(config.MAX_SMOOTHNESS_PENALTY * config.SMOOTHNESS_UI_SCALE)

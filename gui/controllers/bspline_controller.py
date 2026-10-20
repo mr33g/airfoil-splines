@@ -111,9 +111,9 @@ class BSplineController(QObject):
         for widget in widgets:
             widget.blockSignals(True)
         try:
-            opt.smoothness_penalty_spin.setValue(model.smoothing_weight)
-            opt.smoothness_penalty_slider.setValue(
-                opt._slider_from_smoothness_value(model.smoothing_weight))
+            smoothing_ui = opt._slider_from_smoothness_value(model.smoothing_weight)
+            opt.smoothness_penalty_spin.setValue(smoothing_ui)
+            opt.smoothness_penalty_slider.setValue(smoothing_ui)
             opt.g2_checkbox.setChecked(model.enforce_g2)
             opt.g3_checkbox.setChecked(model.enforce_g3)
             opt.g3_checkbox.setEnabled(model.enforce_g2)
