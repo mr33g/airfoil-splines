@@ -10,7 +10,7 @@ import math
 from typing import Any
 import numpy as np
 
-from PySide6.QtWidgets import QFileDialog
+from PySide6.QtWidgets import QDialog, QFileDialog
 from scipy import interpolate
 
 from gui.airfoil_model import AirfoilModel
@@ -20,9 +20,40 @@ from utils.dxf_exporter import (
     DXF_EXPORT_MODE_NURBS,
     export_bspline_to_dxf,
 )
-from airfoil_splines_core import AirfoilProcessor, BSplineProcessor, export_bspline_to_bsp, load_bspline_from_bsp
+from airfoil_splines_core import (
+    AirfoilProcessor,
+    BSplineProcessor,
+    convert_to_fixed_x,
+    export_bspline_to_bsp,
+    load_bspline_from_bsp,
+)
 from airfoil_splines_core.data_loader import export_airfoil_to_selig_format
 from gui.fit_session import FitSession
+from gui.widgets.spline_export_dialog import SplineExportDialog
+
+
+class _FixedXExportModel:
+    """Expose a fixed-x conversion through the existing exporter contracts."""
+
+    def __init__(self, conversion, *, is_sharp_te: bool) -> None:
+        self.fitted = True
+        self.fitted_degree = (conversion.degree, conversion.degree)
+        self.degree = conversion.degree
+        self.is_sharp_te = bool(is_sharp_te)
+        self.upper_curve = conversion.upper_curve
+        self.lower_curve = conversion.lower_curve
+        self.upper_control_points = conversion.upper_control_points
+        self.lower_control_points = conversion.lower_control_points
+        self.upper_knot_vector = conversion.upper_knot_vector
+        self.lower_knot_vector = conversion.lower_knot_vector
+
+    @property
+    def degree_upper(self) -> int:
+        return self.degree
+
+    @property
+    def degree_lower(self) -> int:
+        return self.degree
 
 
 class FileController:
@@ -41,6 +72,46 @@ class FileController:
             if bspline_proc is not None:
                 return bspline_proc
         return getattr(self.window, "bspline_processor", None)
+
+    def _choose_spline_export(
+        self,
+        title: str,
+        default_filename: str,
+        name_filter: str,
+    ) -> tuple[str, bool]:
+        """Return a save path and the representation requested for this export."""
+        dialog = SplineExportDialog(
+            self.window,
+            title,
+            default_filename,
+            name_filter,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return "", False
+        selected = dialog.selectedFiles()
+        if not selected:
+            return "", False
+        return selected[0], dialog.export_loft_compatible
+
+    def _export_model(self, bspline_proc, loft_compatible: bool):
+        """Derive the optional fixed-x representation without changing the fit."""
+        if not loft_compatible:
+            return bspline_proc
+        conversion = convert_to_fixed_x(
+            bspline_proc.upper_curve,
+            bspline_proc.lower_curve,
+        )
+        upper, lower = conversion.side_max_errors_over_chord
+        self.processor.log_message.emit(
+            f"Loft-compatible export: degree {conversion.degree}, "
+            f"{conversion.pole_count} control points; conversion max "
+            f"{conversion.max_error_over_chord * 1e6:.3f} ppm "
+            f"(upper/lower {upper * 1e6:.3f}/{lower * 1e6:.3f} ppm)."
+        )
+        return _FixedXExportModel(
+            conversion,
+            is_sharp_te=bspline_proc.is_sharp_te,
+        )
     
     def load_airfoil_file(self) -> None:
         """Handle loading an airfoil data file."""
@@ -214,8 +285,26 @@ class FileController:
             if as_bezier_checkbox is not None and as_bezier_checkbox.isChecked():
                 export_mode = DXF_EXPORT_MODE_BEZIER
 
+        default_filename = self._get_default_dxf_filename()
+        file_path, loft_compatible = self._choose_spline_export(
+            "Save B-spline DXF File",
+            default_filename,
+            "DXF Files (*.dxf)",
+        )
+        if not file_path:
+            self.processor.log_message.emit("B-spline DXF export cancelled by user.")
+            return
+
+        try:
+            export_model = self._export_model(bspline_proc, loft_compatible)
+        except Exception as exc:
+            self.processor.log_message.emit(
+                f"Could not create loft-compatible DXF representation: {exc}"
+            )
+            return
+
         dxf_doc = export_bspline_to_dxf(
-            bspline_proc,
+            export_model,
             chord_length_mm,
             self.processor.log_message.emit,
             export_mode=export_mode,
@@ -225,17 +314,6 @@ class FileController:
             self.processor.log_message.emit(
                 "B-spline DXF export failed during document creation."
             )
-            return
-
-        default_filename = self._get_default_dxf_filename()
-        file_path, _ = QFileDialog.getSaveFileName(
-            self.window,
-            "Save B-spline DXF File",
-            default_filename,
-            "DXF Files (*.dxf)",
-        )
-        if not file_path:
-            self.processor.log_message.emit("B-spline DXF export cancelled by user.")
             return
 
         try:
@@ -357,8 +435,7 @@ class FileController:
         airfoil_name = getattr(self.processor, "airfoil_name", "airfoil") or "airfoil"
         default_filename = self._get_default_bsp_filename(airfoil_name)
 
-        file_path, _ = QFileDialog.getSaveFileName(
-            self.window,
+        file_path, loft_compatible = self._choose_spline_export(
             "Save B-spline .bsp File",
             default_filename,
             "BSP Files (*.bsp);;All Files (*)",
@@ -367,8 +444,16 @@ class FileController:
             self.processor.log_message.emit(".bsp export cancelled by user.")
             return
 
+        try:
+            export_model = self._export_model(bspline_proc, loft_compatible)
+        except Exception as exc:
+            self.processor.log_message.emit(
+                f"Could not create loft-compatible BSP representation: {exc}"
+            )
+            return
+
         ok = export_bspline_to_bsp(
-            bspline_proc,
+            export_model,
             airfoil_name,
             file_path,
             self.processor.log_message.emit,

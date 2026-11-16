@@ -82,6 +82,14 @@ python run_gui.py
    - *Export BSP*: Saves control points and knot vectors in the JSON-based `.bsp` format used for tool interchange.
    - *Export DAT*: Saves a resampled coordinate file in Selig format.
 
+   The DXF and BSP save dialogs include **Export loft-compatible splines**.
+   When selected, the exported file uses a derived fixed-X representation with
+   degree 4, 35 control points per surface, exact `x(u) = u²`, and the shared
+   uniform knot vector from airfoil-splines-core. This option is intended for
+   CAD lofting and usually improves surface quality a lot.
+   The conversion error is written to the status log. The option is off by
+   default and does not apply to DAT export.
+
 ### Configuration
 
 Runtime defaults are defined in `gui/config.py`.

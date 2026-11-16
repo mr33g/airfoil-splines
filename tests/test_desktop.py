@@ -5,12 +5,14 @@ import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+import ezdxf
 import numpy as np
 from PySide6.QtWidgets import QApplication, QFileDialog
 from airfoil_splines_core import export_bspline_to_bsp, load_bspline_from_bsp
 from airfoil_splines_core.data_loader import export_airfoil_to_selig_format, load_airfoil_data
 from gui.main_window import MainWindow
 from gui.controllers import MainController
+from gui.widgets.spline_export_dialog import SplineExportDialog
 from test_fit_session import source_data
 
 
@@ -78,6 +80,44 @@ class DesktopTests(unittest.TestCase):
         self.assertFalse(self.fit.bspline_processor.is_fitted())
         self.assertFalse(self.window.file_panel.export_bsp_button.isEnabled())
 
+    def test_loft_compatible_exports_are_derived_without_changing_fit(self):
+        self.assertFalse(hasattr(self.window.optimizer_panel, 'add_second_stage_button'))
+        self.fitted()
+        model = self.fit.bspline_processor
+        upper = model.upper_control_points.copy()
+        fc = self.controller.file_controller
+
+        bsp = self.path / 'loft-compatible.bsp'
+        with patch.object(fc, '_choose_spline_export', return_value=(str(bsp), True)):
+            fc.export_bsp_file()
+        data = load_bspline_from_bsp(bsp)
+        self.assertEqual(data.upper_degree, 4)
+        self.assertEqual(data.lower_degree, 4)
+        self.assertEqual(len(data.upper_control_points), 35)
+        self.assertEqual(len(data.lower_control_points), 35)
+
+        dxf = self.path / 'loft-compatible.dxf'
+        with patch.object(fc, '_choose_spline_export', return_value=(str(dxf), True)):
+            fc.export_dxf()
+        self.assertTrue(dxf.is_file())
+        splines = list(ezdxf.readfile(dxf).modelspace().query('SPLINE'))
+        self.assertEqual(len(splines), 2)
+        self.assertTrue(all(spline.dxf.degree == 4 for spline in splines))
+        self.assertTrue(all(len(spline.control_points) == 35 for spline in splines))
+
+        np.testing.assert_array_equal(model.upper_control_points, upper)
+        self.assertIs(self.fit.bspline_processor, model)
+        self.assertNotIn('second_stage_max_error', self.controller.processor._last_plot_data)
+
+        dialog = SplineExportDialog(self.window, 'Export', 'airfoil.bsp', 'BSP Files (*.bsp)')
+        self.assertEqual(
+            dialog.loft_compatible_checkbox.text(),
+            'Export loft-compatible splines',
+        )
+        self.assertFalse(dialog.export_loft_compatible)
+        self.assertIn('degree-4, 35-point', dialog.loft_compatible_checkbox.toolTip())
+        dialog.close()
+
     def test_smoothing_slider_uses_human_friendly_linear_scale(self):
         opt = self.window.optimizer_panel
         for ui_value, weight in ((0, 0.0), (1, 0.0001), (7, 0.0007),
@@ -108,11 +148,15 @@ class DesktopTests(unittest.TestCase):
     def test_exports_and_bsp_import_with_and_without_reference(self):
         self.fitted()
         fc = self.controller.file_controller
-        for suffix, export in [('bsp', fc.export_bsp_file), ('dat', fc.export_dat_file), ('dxf', fc.export_dxf)]:
+        for suffix, export in [('bsp', fc.export_bsp_file), ('dxf', fc.export_dxf)]:
             target = self.path / ('export.' + suffix)
-            with patch.object(QFileDialog, 'getSaveFileName', return_value=(str(target), '')):
+            with patch.object(fc, '_choose_spline_export', return_value=(str(target), False)):
                 export()
             self.assertTrue(target.is_file(), suffix)
+        target = self.path / 'export.dat'
+        with patch.object(QFileDialog, 'getSaveFileName', return_value=(str(target), '')):
+            fc.export_dat_file()
+        self.assertTrue(target.is_file(), 'dat')
         bsp = self.path / 'export.bsp'
         data = load_bspline_from_bsp(bsp)
         np.testing.assert_allclose(data.upper_control_points, self.fit.bspline_processor.upper_control_points)
